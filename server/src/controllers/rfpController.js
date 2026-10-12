@@ -1,4 +1,5 @@
 import Rfp from '../models/Rfp.js';
+import Lead from '../models/Lead.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { findMatchingVendors } from '../services/matchingService.js';
 
@@ -45,6 +46,14 @@ export const createRfp = asyncHandler(async (req, res) => {
   const matchedVendors = await findMatchingVendors(rfp);
   rfp.matchedVendorIds = matchedVendors.map(({ _id }) => _id);
   await rfp.save();
+  if (matchedVendors.length) {
+    await Lead.insertMany(matchedVendors.map((vendor) => ({
+      vendorId: vendor._id,
+      customerId: req.user._id,
+      rfpId: rfp._id,
+      source: 'rfp',
+    })));
+  }
 
   for (const vendor of matchedVendors) {
     req.io?.to(`user:${vendor.userId._id}`).emit('lead:matched', {

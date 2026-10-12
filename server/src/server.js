@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { connectDatabase } from './config/db.js';
 import { getAllowedClientOrigins } from './config/clientOrigins.js';
 import User from './models/User.js';
+import Conversation from './models/Conversation.js';
 
 async function start() {
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -21,9 +22,10 @@ async function start() {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error('Authentication required'));
       const payload = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(payload.sub).select('_id status');
+      const user = await User.findById(payload.sub).select('_id role status');
       if (!user || user.status !== 'active') return next(new Error('Account unavailable'));
       socket.data.userId = String(user._id);
+      socket.data.role = user.role;
       return next();
     } catch (error) {
       return next(error);
@@ -31,6 +33,24 @@ async function start() {
   });
   io.on('connection', (socket) => {
     socket.join(`user:${socket.data.userId}`);
+    socket.on('chat:join', async ({ conversationId } = {}, acknowledge = () => {}) => {
+      try {
+        const conversation = await Conversation.findById(conversationId).select('customerId vendorId');
+        if (!conversation) return acknowledge({ error: 'Không tìm thấy cuộc trò chuyện' });
+        const userId = socket.data.userId;
+        if (![String(conversation.customerId), String(conversation.vendorId)].includes(userId)) {
+          return acknowledge({ error: 'Bạn không có quyền truy cập cuộc trò chuyện này' });
+        }
+        socket.join(`conversation:${conversationId}`);
+        return acknowledge({ success: true });
+      } catch (error) {
+        console.error('Failed to join chat conversation', error);
+        return acknowledge({ error: 'Không thể kết nối cuộc trò chuyện' });
+      }
+    });
+    socket.on('chat:leave', ({ conversationId } = {}) => {
+      if (typeof conversationId === 'string') socket.leave(`conversation:${conversationId}`);
+    });
   });
 
   const app = createApp(io);

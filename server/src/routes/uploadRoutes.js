@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { uploadFile } from '../controllers/uploadController.js';
-import { requireAuth } from '../middleware/auth.js';
-import { uploadFileMiddleware } from '../middleware/upload.js';
+import { serveUpload, uploadAvatar, uploadFile } from '../controllers/uploadController.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { uploadAvatarMiddleware, uploadFileMiddleware } from '../middleware/upload.js';
 
 const router = Router();
-router.post('/', requireAuth, uploadFileMiddleware.single('file'), uploadFile);
+router.get('/:fileId', serveUpload);
+router.post('/avatar', requireAuth, uploadAvatarMiddleware.single('file'), uploadAvatar);
+router.post('/', requireAuth, requireRole('vendor'), uploadFileMiddleware.single('file'), uploadFile);
 export default router;

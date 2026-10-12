@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowUpRight, CalendarDays, Grip, MessageCircle } from 'lucide-react';
+import { CalendarDays, Grip } from 'lucide-react';
 import { apiRequest } from '../lib/api.js';
 
 const columns = [
@@ -20,14 +20,32 @@ const columns = [
   { id: 'closed_won', title: 'Đã chốt', color: 'yellow' },
   { id: 'in_progress', title: 'Đang thực hiện', color: 'peach' },
   { id: 'completed', title: 'Hoàn thành', color: 'green' },
+  { id: 'cancelled', title: 'Đã hủy', color: 'peach' },
 ];
+const EMPTY_LEADS = [];
 
-const demoLeads = [
-  { id: 'l1', customer: 'Minh Anh', event: 'Lễ cưới tại Sơn Trà', date: '12 Thg 11', category: 'Quay phim', budget: '8–12 triệu', status: 'new_lead', initials: 'MA', avatarClass: 'avatar-peach' },
-  { id: 'l2', customer: 'Hoàng Nam', event: 'Year End Party 2025', date: '18 Thg 12', category: 'Ban nhạc', budget: '15 triệu', status: 'consulting', initials: 'HN', avatarClass: 'avatar-blue' },
-  { id: 'l3', customer: 'Lan Phương', event: 'Tiệc sinh nhật ngoài trời', date: '04 Thg 01', category: 'Trang trí', budget: '6–9 triệu', status: 'quoted', initials: 'LP', avatarClass: 'avatar-lilac' },
-  { id: 'l4', customer: 'Gia Bảo', event: 'Kỷ niệm ngày cưới', date: '22 Thg 01', category: 'Chụp ảnh', budget: '5 triệu', status: 'in_progress', initials: 'GB', avatarClass: 'avatar-green' },
-];
+const formatLead = (lead) => {
+  const customer = lead.customerId?.fullName || 'Khách hàng';
+  const date = lead.rfpId?.eventDate
+    ? new Date(lead.rfpId.eventDate).toLocaleDateString('vi-VN')
+    : new Date(lead.createdAt).toLocaleDateString('vi-VN');
+  const format = (value) => value == null ? '' : new Intl.NumberFormat('vi-VN').format(value);
+  const budgetMin = lead.rfpId?.budgetMin;
+  const budgetMax = lead.rfpId?.budgetMax;
+  const budget = budgetMin == null && budgetMax == null
+    ? 'Chưa nêu ngân sách'
+    : `${budgetMin == null ? '' : format(budgetMin)}${budgetMin != null && budgetMax != null ? '–' : ''}${budgetMax == null ? '' : format(budgetMax)}đ`;
+  return {
+    id: String(lead._id),
+    customer,
+    event: lead.rfpId?.title || 'Yêu cầu trực tiếp',
+    date,
+    category: lead.rfpId?.category || lead.source,
+    budget,
+    status: lead.status,
+    initials: customer.slice(0, 2).toLocaleUpperCase(),
+  };
+};
 
 function LeadCard({ lead }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id });
@@ -53,9 +71,6 @@ function LeadCard({ lead }) {
         <span><CalendarDays size={13} /> {lead.date}</span>
         <span>{lead.budget}</span>
       </div>
-      <button className="lead-chat" type="button">
-        <MessageCircle size={14} /> Mở hội thoại <ArrowUpRight size={13} />
-      </button>
     </article>
   );
 }
@@ -72,16 +87,17 @@ function KanbanColumn({ column, leads }) {
       <SortableContext items={leads.map((lead) => lead.id)} strategy={verticalListSortingStrategy}>
         <div className="lead-list">
           {leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}
-          {leads.length === 0 && <div className="drop-hint">Thả lead vào đây</div>}
+          {leads.length === 0 && <div className="drop-hint">Chưa có lead</div>}
         </div>
       </SortableContext>
     </section>
   );
 }
 
-export default function CrmKanbanBoard({ initialLeads = demoLeads, token = localStorage.getItem('bridgc_token'), onStatusChange }) {
-  const [leads, setLeads] = useState(initialLeads);
+export default function CrmKanbanBoard({ initialLeads = EMPTY_LEADS, token = localStorage.getItem('bridgc_token'), onStatusChange }) {
+  const [leads, setLeads] = useState(initialLeads.map(formatLead));
   const [error, setError] = useState('');
+  useEffect(() => setLeads(initialLeads.map(formatLead)), [initialLeads]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -100,7 +116,7 @@ export default function CrmKanbanBoard({ initialLeads = demoLeads, token = local
     setLeads((current) => current.map((lead) => lead.id === moved.id ? { ...lead, status: nextStatus } : lead));
     try {
       if (onStatusChange) await onStatusChange(moved, nextStatus);
-      else if (!moved.id.startsWith('l')) {
+      else {
         await apiRequest(`/api/crm/leads/${moved.id}/status`, {
           method: 'PATCH',
           token,
@@ -121,7 +137,6 @@ export default function CrmKanbanBoard({ initialLeads = demoLeads, token = local
           <h2>Pipeline khách hàng</h2>
           <p>Kéo thả lead để cập nhật tiến độ tư vấn.</p>
         </div>
-        <button className="button button-outline" type="button">+ Thêm lead</button>
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>

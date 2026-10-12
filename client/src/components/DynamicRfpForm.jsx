@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2, Paperclip } from 'lucide-react';
 import { apiRequest } from '../lib/api.js';
 
@@ -20,10 +20,26 @@ const categoryFields = {
 };
 
 export default function DynamicRfpForm({ token = localStorage.getItem('bridgc_token'), onSubmitted }) {
-  const [category, setCategory] = useState('Quay phim');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/vendors?limit=50')
+      .then((result) => {
+        if (cancelled) return;
+        const names = (result.categories || []).map(({ name }) => name);
+        setCategories(names);
+        setCategory((current) => current || names[0] || '');
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError.message);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -79,9 +95,13 @@ export default function DynamicRfpForm({ token = localStorage.getItem('bridgc_to
       <div className="form-grid">
         <label className="field">
           <span>Danh mục dịch vụ</span>
-          <select value={category} onChange={(event) => setCategory(event.target.value)}>
-            {Object.keys(categoryFields).map((item) => <option key={item}>{item}</option>)}
-          </select>
+          {categories.length ? (
+            <select required value={category} onChange={(event) => setCategory(event.target.value)}>
+              {categories.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          ) : (
+            <input required value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Nhập danh mục dịch vụ" />
+          )}
         </label>
         <label className="field">
           <span>Tên sự kiện / yêu cầu</span>

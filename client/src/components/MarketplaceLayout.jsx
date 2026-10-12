@@ -5,18 +5,18 @@ import {
   ChevronDown,
   CircleHelp,
   FilePlus2,
-  HeartHandshake,
   LayoutDashboard,
   LogOut,
   MessageCircle,
   Search,
+  UserRound,
 } from 'lucide-react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { assetUrl } from '../lib/api.js';
 import { useSessionStore } from '../store/sessionStore.js';
 
 const customerLinks = [
   { to: '/', label: 'Khám phá Vendor' },
-  { to: '/vendors/danang-media', label: 'Hồ sơ Vendor' },
   { to: '/quotes', label: 'So sánh dịch vụ' },
   { to: '/rfp/new', label: 'Đăng dự án RFP' },
 ];
@@ -30,11 +30,22 @@ const vendorLinks = [
 
 export default function MarketplaceLayout({ children, mode = 'customer' }) {
   const token = useSessionStore((state) => state.token);
-  const setToken = useSessionStore((state) => state.setToken);
+  const user = useSessionStore((state) => state.user);
+  const logout = useSessionStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
   const isVendor = mode === 'vendor';
   const links = isVendor ? vendorLinks : customerLinks;
+  const accountName = user?.fullName || user?.email || 'Tài khoản';
+  const accountInitials = accountName
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toLocaleUpperCase())
+    .join('');
+  const accountRole = user?.role === 'admin'
+    ? 'Quản trị viên'
+    : user?.role === 'vendor' ? 'Nhà cung ứng' : 'Khách hàng';
 
   return (
     <div className={`marketplace-shell ${isVendor ? 'vendor-shell' : ''}`}>
@@ -44,10 +55,6 @@ export default function MarketplaceLayout({ children, mode = 'customer' }) {
             <span className="market-brand-mark">b.</span>
             <span className="market-brand-copy"><strong>Bridg<span>C</span></strong><small>{isVendor ? 'BUSINESS PORTAL' : 'EVENT MARKETPLACE'}</small></span>
           </Link>
-          <div className="portal-switch" aria-label="Chế độ nền tảng">
-            <Link to="/" className={!isVendor ? 'selected' : ''}>Khách hàng</Link>
-            <Link to="/vendor" className={isVendor ? 'selected' : ''}>Dành cho Vendor</Link>
-          </div>
           <nav className="market-nav" aria-label="Điều hướng chính">
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink
@@ -71,34 +78,27 @@ export default function MarketplaceLayout({ children, mode = 'customer' }) {
                 <FilePlus2 size={16} /> <span>Tạo yêu cầu mới</span>
               </Link>
             )}
-            {isVendor && <span className="credit-pill">◉ 1,250 <small>B-Credit</small></span>}
+            {isVendor && <span className="credit-pill">◉ {new Intl.NumberFormat('vi-VN').format(user?.creditsBalance ?? 0)} <small>B-Credit</small></span>}
             <button className="header-icon" type="button" aria-label="Thông báo"><Bell size={18} /><i /></button>
-            <button className="header-icon" type="button" aria-label="Tin nhắn"><MessageCircle size={18} /></button>
+            <Link className="header-icon" to={token ? '/messages' : isVendor ? '/vendor/login' : '/login'} aria-label="Tin nhắn" title="Tin nhắn"><MessageCircle size={18} /></Link>
             {token ? (
               <div className="account-menu">
-                <span className="account-avatar">{isVendor ? 'DM' : 'AN'}</span>
-                <span className="account-copy"><strong>{isVendor ? 'Danang Media' : 'Anh Nguyễn'}</strong><small>{isVendor ? 'Vendor Pro' : 'Khách hàng'}</small></span>
+                <Link className="account-profile-link" to="/profile" title="Thông tin cá nhân">
+                  <span className="account-avatar">{user?.avatar
+                    ? <img src={assetUrl(user.avatar)} alt="" />
+                    : accountInitials}</span>
+                  <span className="account-copy"><strong>{accountName}</strong><small>{user?.email || accountRole}</small></span>
+                </Link>
                 <ChevronDown size={14} />
-                <button type="button" className="account-logout" onClick={() => { setToken(null); navigate('/'); }} aria-label="Đăng xuất">
+                <button type="button" className="account-logout" onClick={() => { logout(); navigate(isVendor ? '/vendor/login' : '/login', { replace: true }); }} aria-label="Đăng xuất" title="Đăng xuất">
                   <LogOut size={15} />
                 </button>
               </div>
             ) : (
-              <Link className="header-login" to="/login">Đăng nhập <ArrowRight size={14} /></Link>
+              <Link className="header-login" to={isVendor ? '/vendor/login' : '/login'}>Đăng nhập <ArrowRight size={14} /></Link>
             )}
           </div>
         </div>
-        {!isVendor && (
-          <nav className="category-bar" aria-label="Danh mục dịch vụ">
-            <span>Khám phá:</span>
-            <Link to="/?category=audio">Âm thanh & Ánh sáng</Link>
-            <Link to="/?category=stage">Sân khấu & LED</Link>
-            <Link to="/?category=venue">Địa điểm Luxury</Link>
-            <Link to="/?category=catering">Tiệc & Catering</Link>
-            <Link to="/?category=video">Quay phim & Flycam</Link>
-            <span className="category-note"><HeartHandshake size={14} /> Nhà cung cấp đã xác thực</span>
-          </nav>
-        )}
       </header>
       <main className={`market-page ${isVendor ? 'market-page-vendor' : ''}`}>{children}</main>
       <footer className="market-footer">

@@ -1,61 +1,74 @@
-import { useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Heart, MapPin, MessageCircle, Play, Share2, ShieldCheck, Star, UsersRound } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, MessageCircle, Play, ShieldCheck, Star } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
+import { apiRequest, assetUrl } from '../lib/api.js';
+import { useSessionStore } from '../store/sessionStore.js';
 
-const portfolio = [
-  ['photo-1519741497674-611481863552', 'Lễ khai trương khách sạn ven biển'],
-  ['photo-1506157786151-b8491531f063', 'Gala dinner hội nghị thường niên'],
-  ['photo-1492684223066-81342ee5ff30', 'Hội nghị y khoa quốc tế'],
-  ['photo-1505373877841-8d25f7d46678', 'Sân khấu sự kiện doanh nghiệp'],
-  ['photo-1470229722913-7c0e2dbbafd3', 'Đêm nhạc bên bờ biển'],
-  ['photo-1505236858219-8359eb29e329', 'Hội nghị khách hàng 2025'],
-];
+const formatPrice = (price) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(price);
 
-const packages = [
-  { name: 'Gói Cơ Bản', tier: 'STANDARD', price: '14.000.000đ', details: ['2 máy quay 4K', '01 đạo diễn hình ảnh', 'Video highlight 3–5 phút', 'Bàn giao sau 7 ngày'] },
-  { name: 'Gala Chuyên Nghiệp', tier: 'BEST SELLER', price: '16.500.000đ', featured: true, details: ['3 máy quay 4K đa góc', 'Flycam & đạo diễn hình ảnh', 'Livestream Full HD', 'Bàn giao sau 48 giờ'] },
-  { name: 'Gói VIP Enterprise', tier: 'ENTERPRISE', price: '21.000.000đ', details: ['Multi-cam 4K + livestream', 'Ekip 6 nhân sự chuyên nghiệp', 'Video recap & raw footage', 'Bàn giao ưu tiên 24 giờ'] },
-];
-
-const busyDays = new Set([3, 8, 9, 14, 21, 22, 28]);
-const profileDetails = {
-  media: { name: 'Danang Media Art Pro', location: 'Đà Nẵng', category: 'Quay phim & Flycam', rating: '4.9', reviews: 128 },
-  band: { name: 'Heritage Live Acoustic Band', location: 'Hội An', category: 'Ban nhạc & Ca sĩ', rating: '4.8', reviews: 86 },
-  skyline: { name: 'SkyLine Film & Events', location: 'Hội An', category: 'Quay phim & Sản xuất', rating: '4.8', reviews: 96 },
-  furama: { name: 'Furama Ocean Visual Team', location: 'Đà Nẵng', category: 'Quay phim & Flycam', rating: '4.9', reviews: 74 },
-  visual: { name: 'Visual Moments Photography', location: 'Huế', category: 'Chụp ảnh sự kiện', rating: '5.0', reviews: 61 },
-};
+const formatDate = (value) => new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(value));
 
 export default function VendorProfilePage() {
   const { slug } = useParams();
+  const role = useSessionStore((state) => state.role);
   const [activeTab, setActiveTab] = useState('Tổng quan');
-  const [month, setMonth] = useState(5);
+  const [month, setMonth] = useState(() => new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
-  const [saved, setSaved] = useState(false);
-  const profile = profileDetails[slug] || profileDetails.media;
-  const firstWeekday = (new Date(2026, month - 1, 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(2026, month, 0).getDate();
+  const [vendor, setVendor] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    apiRequest(`/api/vendors/${encodeURIComponent(slug)}`)
+      .then(({ vendor: result }) => {
+        if (!cancelled) setVendor(result);
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  const year = new Date().getFullYear();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const calendarDays = Array.from({ length: Math.ceil((firstWeekday + daysInMonth) / 7) * 7 }, (_, index) => {
     const day = index - firstWeekday + 1;
     return day > 0 && day <= daysInMonth ? day : null;
   });
-  const monthLabel = new Intl.DateTimeFormat('vi-VN', { month: 'long' }).format(new Date(2026, month - 1, 1));
+  const monthLabel = formatDate(new Date(year, month, 1));
+  const availability = useMemo(() => new Map(
+    (vendor?.availabilityCalendar || []).map(({ date, status }) => [new Date(date).toDateString(), status]),
+  ), [vendor]);
+
+  if (loading) return <p className="market-empty">Đang tải hồ sơ vendor…</p>;
+  if (error || !vendor) return <p className="market-empty" role="alert">{error || 'Không tìm thấy hồ sơ vendor.'}</p>;
+
+  const image = vendor.coverImage || vendor.portfolio?.find((item) => item.type === 'image')?.url || '';
+  const location = [vendor.location?.city, vendor.location?.province].filter(Boolean).join(', ');
 
   return (
     <div className="profile-page">
       <div className="profile-breadcrumb"><Link to="/"><ArrowLeft size={14} /> Khám phá Vendor</Link><span>/</span><span>Hồ sơ nhà cung cấp</span></div>
       <section className="profile-cover">
-        <img src="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1800&q=85" alt="Sân khấu sự kiện được quay bởi Danang Media Art Pro" />
+        {image && <img src={assetUrl(image)} alt={`Hình ảnh của ${vendor.storeName}`} />}
         <div className="profile-cover-shade" />
-        <span className="cover-caption">EVENTS, CAPTURED WITH PURPOSE</span>
+        <span className="cover-caption">{vendor.storeName}</span>
       </section>
       <section className="profile-identity card-surface">
-        <div className="profile-logo">DM<span>+</span></div>
-        <div className="profile-identity-copy"><div className="profile-name-line"><h1>{profile.name}</h1><span className="verified-pill"><BadgeCheck size={14} /> VERIFIED VENDOR</span><span className="pro-pill">PRO</span></div><p><MapPin size={14} /> {profile.location}, Việt Nam <span>·</span> Hoạt động từ 2018 <span>·</span> {profile.category}</p></div>
-        <div className="profile-actions"><button type="button" className="profile-secondary" onClick={() => setSaved((value) => !value)}><Heart size={15} fill={saved ? 'currentColor' : 'none'} /> {saved ? 'Đã lưu' : 'Lưu hồ sơ'}</button><button type="button" className="profile-secondary"><Share2 size={15} /> Chia sẻ</button><Link className="profile-primary" to="/rfp/new"><CalendarDays size={16} /> Đặt lịch &amp; Báo giá</Link></div>
+        <div className="profile-logo">{vendor.logo ? <img src={assetUrl(vendor.logo)} alt="" /> : vendor.storeName.slice(0, 2).toLocaleUpperCase()}</div>
+        <div className="profile-identity-copy"><div className="profile-name-line"><h1>{vendor.storeName}</h1>{vendor.isVerified && <span className="verified-pill"><BadgeCheck size={14} /> VERIFIED VENDOR</span>}{vendor.isPro && <span className="pro-pill">PRO</span>}</div><p><MapPin size={14} /> {location || 'Chưa cập nhật địa điểm'} <span>·</span> {vendor.category?.join(', ')}</p></div>
+        <div className="profile-actions">{role !== 'vendor' && <Link className="profile-secondary" to={`/messages?vendor=${encodeURIComponent(vendor.slug)}`}><MessageCircle size={15} /> Nhắn tin</Link>}<Link className="profile-primary" to={`/rfp/new?vendor=${encodeURIComponent(vendor.slug)}`}><CalendarDays size={16} /> Yêu cầu báo giá</Link></div>
       </section>
       <nav className="profile-tabs" aria-label="Nội dung hồ sơ">
-        {['Tổng quan', 'Giới thiệu & Thiết bị', 'Bảng giá & Gói dịch vụ', 'Portfolio dự án', 'Đánh giá khách hàng', 'Lịch làm việc'].map((tab, index) => (
+        {['Tổng quan', 'Giới thiệu', 'Bảng giá & Gói dịch vụ', 'Portfolio dự án', 'Đánh giá khách hàng', 'Lịch làm việc'].map((tab, index) => (
           <a key={tab} href={`#${['overview', 'about', 'packages', 'portfolio', 'reviews', 'calendar'][index]}`} className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab}</a>
         ))}
       </nav>
@@ -63,41 +76,48 @@ export default function VendorProfilePage() {
       <div className="profile-layout" id="overview">
         <div className="profile-main-column">
           <section className="profile-section card-surface" id="about">
-            <div className="profile-section-title"><div><span className="market-kicker">NĂNG LỰC SẢN XUẤT</span><h2>Hình ảnh kể câu chuyện của bạn</h2></div><span className="experience-stamp"><BadgeCheck size={15} /> 7+ năm kinh nghiệm</span></div>
-            <p className="profile-intro">Danang Media Art Pro là đội ngũ sản xuất hình ảnh sự kiện chuyên nghiệp tại miền Trung. Chúng tôi đồng hành cùng doanh nghiệp để lưu giữ những khoảnh khắc quan trọng bằng góc nhìn giàu cảm xúc và quy trình minh bạch.</p>
-            <div className="capability-grid"><div><Check size={15} /><span><strong>Thiết bị chuẩn cinema</strong><small>Máy quay Sony FX6 / FX3, ống kính cinema</small></span></div><div><Check size={15} /><span><strong>Multi-cam &amp; livestream</strong><small>Hệ thống truyền dẫn dự phòng ổn định</small></span></div><div><Check size={15} /><span><strong>Ekip onsite chuyên nghiệp</strong><small>Đạo diễn, quay phim và kỹ thuật viên</small></span></div><div><Check size={15} /><span><strong>Hợp đồng &amp; hóa đơn VAT</strong><small>Quy trình rõ ràng cho khách hàng doanh nghiệp</small></span></div></div>
+            <div className="profile-section-title"><div><span className="market-kicker">GIỚI THIỆU</span><h2>{vendor.storeName}</h2></div></div>
+            <p className="profile-intro">{vendor.bio || 'Nhà cung cấp chưa cập nhật phần giới thiệu.'}</p>
+            {!!vendor.tags?.length && <div className="capability-grid">{vendor.tags.map((tag) => <div key={tag}><Check size={15} /><span><strong>{tag}</strong></span></div>)}</div>}
           </section>
 
           <section className="profile-section card-surface" id="packages">
-            <div className="profile-section-title"><div><span className="market-kicker">BẢNG GIÁ MINH BẠCH</span><h2>Bảng giá &amp; các gói dịch vụ</h2></div><span className="muted-inline">Giá tham khảo · Đã bao gồm ekip onsite</span></div>
+            <div className="profile-section-title"><div><span className="market-kicker">DỊCH VỤ ĐÃ ĐĂNG KÝ</span><h2>Bảng giá &amp; các gói dịch vụ</h2></div></div>
             <div className="package-grid">
-              {packages.map((item) => <article className={`package-card ${item.featured ? 'featured' : ''}`} key={item.name}>
-                <span className="package-tier">{item.tier}</span><h3>{item.name}</h3><p>Quay phim sự kiện chuyên nghiệp</p><strong className="package-price">{item.price}</strong><span className="package-unit">/ sự kiện</span>
-                <ul>{item.details.map((detail) => <li key={detail}><Check size={14} /> {detail}</li>)}</ul>
-                <Link to="/quotes" className={item.featured ? 'package-cta primary' : 'package-cta'}>{item.featured ? 'Chọn gói Best Seller' : 'Chọn gói này'} <ArrowRight size={14} /></Link>
+              {vendor.packages?.map((item) => <article className="package-card" key={item._id || item.name}>
+                <span className="package-tier">{item.name}</span><h3>{item.name}</h3><p>{item.description}</p><strong className="package-price">{formatPrice(item.price)}</strong>
+                <ul>{item.features.map((feature) => <li key={feature}><Check size={14} /> {feature}</li>)}</ul>
+                <Link to={`/rfp/new?vendor=${encodeURIComponent(vendor.slug)}`} className="package-cta">Yêu cầu gói này <ArrowRight size={14} /></Link>
               </article>)}
+              {!vendor.packages?.length && <p className="market-empty">Vendor chưa đăng ký gói dịch vụ.</p>}
             </div>
           </section>
 
           <section className="profile-section card-surface" id="portfolio">
-            <div className="profile-section-title"><div><span className="market-kicker">DẤU ẤN ĐỒNG HÀNH</span><h2>Portfolio dự án tiêu biểu</h2></div><button type="button" className="quiet-link">Tất cả (24) <ArrowRight size={14} /></button></div>
-            <div className="portfolio-filters"><button className="active" type="button">Tất cả</button><button type="button">Video 4K</button><button type="button">Photo Album</button></div>
-            <div className="profile-portfolio-grid">{portfolio.map(([photo, title], index) => <button className="profile-project" type="button" key={photo}><img src={`https://images.unsplash.com/${photo}?auto=format&fit=crop&w=800&q=80`} alt={title} /><span className="project-play">{index % 2 === 0 ? <Play size={16} fill="currentColor" /> : <ArrowRight size={16} />}</span><span className="project-title">{title}</span></button>)}</div>
-            <button type="button" className="portfolio-more">Xem thêm 21 dự án khác <ArrowRight size={15} /></button>
+            <div className="profile-section-title"><div><span className="market-kicker">PORTFOLIO</span><h2>Dự án đã đăng</h2></div></div>
+            <div className="profile-portfolio-grid">{vendor.portfolio?.map((item) => <a className="profile-project" key={item._id || item.url} href={assetUrl(item.url)} target="_blank" rel="noreferrer">
+              {item.type === 'image' ? <img src={assetUrl(item.url)} alt={item.title || vendor.storeName} /> : <span className="project-play">{item.type === 'video' ? <Play size={16} fill="currentColor" /> : <ArrowDownToLine size={16} />}</span>}
+              <span className="project-title">{item.title || item.type}</span>
+            </a>)}</div>
+            {!vendor.portfolio?.length && <p className="market-empty">Vendor chưa đăng dự án portfolio.</p>}
           </section>
 
           <section className="profile-section card-surface" id="reviews">
-            <div className="profile-section-title"><div><span className="market-kicker">PHẢN HỒI ĐÃ XÁC THỰC</span><h2>Đánh giá thực tế từ khách hàng</h2></div><div className="review-summary"><Star size={17} fill="currentColor" /> 4.9 <small>/ 5 · 128 đánh giá</small></div></div>
-            <div className="review-card"><div className="reviewer-avatar">TH</div><div><div className="reviewer-line"><strong>Thu Hà Nguyễn</strong><span className="verified-pill"><ShieldCheck size={12} /> Giao dịch hoàn tất</span></div><span className="review-stars">★★★★★ <small>Tháng 4, 2025 · Gala doanh nghiệp</small></span><p>Ekip làm việc rất chuyên nghiệp, xử lý tình huống nhanh và chất lượng video vượt mong đợi. Sẽ tiếp tục đồng hành ở sự kiện tiếp theo.</p></div></div>
-            <div className="review-card"><div className="reviewer-avatar lavender">MN</div><div><div className="reviewer-line"><strong>Minh Nguyễn</strong><span className="verified-pill"><ShieldCheck size={12} /> Giao dịch hoàn tất</span></div><span className="review-stars">★★★★★ <small>Tháng 3, 2025 · Hội nghị khách hàng</small></span><p>Quy trình báo giá minh bạch, hình ảnh chỉn chu. Đội ngũ đã giao đủ file và đúng thời hạn.</p></div></div>
+            <div className="profile-section-title"><div><span className="market-kicker">ĐÁNH GIÁ</span><h2>Đánh giá từ khách hàng</h2></div><div className="review-summary"><Star size={17} fill="currentColor" /> {vendor.stats?.ratingAvg?.toFixed(1) || '—'} <small>/ 5 · {vendor.stats?.reviewCount || 0} đánh giá</small></div></div>
+            {vendor.reviews?.map((review) => <div className="review-card" key={review.id}><div className="reviewer-avatar">{review.customer?.fullName?.slice(0, 1)?.toLocaleUpperCase() || '?'}</div><div><div className="reviewer-line"><strong>{review.customer?.fullName || 'Khách hàng'}</strong>{review.isVerifiedDeal && <span className="verified-pill"><ShieldCheck size={12} /> Giao dịch hoàn tất</span>}</div><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)} <small>{formatDate(review.createdAt)}</small></span><p>{review.comment || 'Khách hàng không để lại nhận xét.'}</p></div></div>)}
+            {!vendor.reviews?.length && <p className="market-empty">Chưa có đánh giá trong hệ thống.</p>}
           </section>
         </div>
 
         <aside className="profile-aside">
-          <section className="profile-section card-surface profile-stat-card"><div className="profile-stat-rating"><Star size={19} fill="currentColor" /><strong>{profile.rating}</strong><span>/ 5</span></div><p>{profile.reviews} đánh giá đã xác thực</p><div className="stat-divider" /><div className="quick-stats"><span><Clock3 size={15} /> Thời gian phản hồi<strong>~ 25 phút</strong></span><span><UsersRound size={15} /> Sự kiện đã đồng hành<strong>240+ dự án</strong></span><span><ShieldCheck size={15} /> Tỷ lệ phản hồi<strong>98%</strong></span></div></section>
-          <section className="profile-section card-surface calendar-card" id="calendar"><div className="calendar-top"><div><span className="market-kicker">LỊCH LÀM VIỆC</span><h3>Lịch trống {monthLabel} 2026</h3></div><div><button type="button" aria-label="Tháng trước" onClick={() => setMonth((value) => Math.max(1, value - 1))}><ChevronLeft size={15} /></button><button type="button" aria-label="Tháng sau" onClick={() => setMonth((value) => Math.min(12, value + 1))}><ChevronRight size={15} /></button></div></div><div className="calendar-grid calendar-weekdays">{['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{calendarDays.map((day, index) => <button key={`${month}-${index}`} type="button" disabled={!day || busyDays.has(day)} className={`${!day ? 'outside' : ''} ${day && busyDays.has(day) ? 'busy' : ''} ${selectedDay === day ? 'chosen' : ''}`} onClick={() => setSelectedDay(day)}>{day || ''}</button>)}</div><div className="calendar-legend"><span><i /> Còn trống</span><span><i /> Đã kín lịch</span></div><Link className="profile-primary full-width" to="/rfp/new"><CalendarDays size={15} /> Chọn ngày &amp; Yêu cầu báo giá</Link></section>
-          <section className="profile-section card-surface document-card"><h3>Hồ sơ năng lực</h3><p>Catalogue dịch vụ &amp; thiết bị sản xuất</p><button type="button"><ArrowDownToLine size={16} /> Tải hồ sơ năng lực (PDF)</button></section>
-          <Link className="profile-chat-card" to="/rfp/new"><span><MessageCircle size={17} /></span><strong>Trao đổi với nhà cung cấp</strong><small>Thường phản hồi trong 25 phút</small><ArrowRight size={16} /></Link>
+          <section className="profile-section card-surface profile-stat-card"><div className="profile-stat-rating"><Star size={19} fill="currentColor" /><strong>{vendor.stats?.ratingAvg?.toFixed(1) || '—'}</strong><span>/ 5</span></div><p>{vendor.stats?.reviewCount || 0} đánh giá</p><div className="stat-divider" /><div className="quick-stats"><span><Clock3 size={15} /> Thời gian phản hồi<strong>{vendor.stats?.responseTimeMinutes ? `${vendor.stats.responseTimeMinutes} phút` : 'Chưa có dữ liệu'}</strong></span><span><ShieldCheck size={15} /> Tỷ lệ phản hồi<strong>{vendor.stats?.responseRate ? `${vendor.stats.responseRate}%` : 'Chưa có dữ liệu'}</strong></span></div></section>
+          <section className="profile-section card-surface calendar-card" id="calendar"><div className="calendar-top"><div><span className="market-kicker">LỊCH LÀM VIỆC</span><h3>{monthLabel}</h3></div><div><button type="button" aria-label="Tháng trước" onClick={() => setMonth((value) => Math.max(0, value - 1))}><ChevronLeft size={15} /></button><button type="button" aria-label="Tháng sau" onClick={() => setMonth((value) => Math.min(11, value + 1))}><ChevronRight size={15} /></button></div></div><div className="calendar-grid calendar-weekdays">{['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{calendarDays.map((day, index) => {
+            const date = day ? new Date(year, month, day) : null;
+            const status = date ? availability.get(date.toDateString()) : null;
+            return <button key={`${month}-${index}`} type="button" disabled={!day || !status || status === 'busy' || status === 'fully_booked'} className={`${!day ? 'outside' : ''} ${status === 'busy' || status === 'fully_booked' ? 'busy' : ''} ${selectedDay === day ? 'chosen' : ''}`} onClick={() => setSelectedDay(day)}>{day || ''}</button>;
+          })}</div>{vendor.availabilityCalendar?.length ? <div className="calendar-legend"><span><i /> Ngày có lịch trống</span><span><i /> Đã bận</span></div> : <p className="market-empty">Vendor chưa cập nhật lịch làm việc.</p>}<Link className="profile-primary full-width" to={`/rfp/new?vendor=${encodeURIComponent(vendor.slug)}`}><CalendarDays size={15} /> Yêu cầu báo giá</Link></section>
+          {vendor.companyProfilePdfUrl && <section className="profile-section card-surface document-card"><h3>Hồ sơ năng lực</h3><a href={assetUrl(vendor.companyProfilePdfUrl)} target="_blank" rel="noreferrer"><ArrowDownToLine size={16} /> Tải hồ sơ năng lực (PDF)</a></section>}
+          {vendor.cataloguePdfUrl && <section className="profile-section card-surface document-card"><h3>Catalogue</h3><a href={assetUrl(vendor.cataloguePdfUrl)} target="_blank" rel="noreferrer"><ArrowDownToLine size={16} /> Tải catalogue (PDF)</a></section>}
         </aside>
       </div>
     </div>

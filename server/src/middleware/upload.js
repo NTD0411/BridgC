@@ -23,3 +23,16 @@ export const uploadFileMiddleware = multer({
     return callback(null, true);
   },
 });
+
+export const uploadAvatarMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter(req, file, callback) {
+    if (!file.mimetype.startsWith('image/')) {
+      const error = new Error('Ảnh đại diện phải là tệp hình ảnh');
+      error.statusCode = 415;
+      return callback(error);
+    }
+    return callback(null, true);
+  },
+});

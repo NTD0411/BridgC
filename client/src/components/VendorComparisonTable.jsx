@@ -1,4 +1,5 @@
 import { ArrowUpRight, Check, Crown, Star } from 'lucide-react';
+import { assetUrl } from '../lib/api.js';
 
 const formatPrice = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(price);
@@ -23,30 +24,27 @@ export default function VendorComparisonTable({ vendors = [], onRemove }) {
       label: 'Review 5 sao',
       render: (vendor) => <strong>{vendor.fiveStarReviews ?? '—'}</strong>,
     },
-    { label: 'Giá từ', render: (vendor) => <strong>{formatPrice(vendor.startingPrice ?? 0)}</strong> },
-    { label: 'Phản hồi', render: (vendor) => `${vendor.responseTime ?? '—'} phút` },
+    { label: 'Giá từ', render: (vendor) => <strong>{vendor.startingPrice == null ? 'Chưa cập nhật' : formatPrice(vendor.startingPrice)}</strong> },
+    { label: 'Phản hồi', render: (vendor) => vendor.responseTime ? `${vendor.responseTime} phút` : 'Chưa có dữ liệu' },
     {
       label: 'Portfolio',
       render: (vendor) => (
         <div className="portfolio-preview" aria-label={`Portfolio của ${vendor.name}`}>
-          {[0, 1, 2].map((index) => {
-            const item = vendor.portfolio?.[index];
-            return item?.url ? (
-              <img key={`${vendor.id}-${index}`} src={item.url} alt={item.title || `Tác phẩm ${index + 1}`} loading="lazy" />
-            ) : (
-              <span key={`${vendor.id}-${index}`} className={`portfolio-tile tile-${index + 1}`}>{item?.type === 'video' ? '▶' : '✳'}</span>
-            );
-          })}
+          {vendor.portfolio?.length
+            ? vendor.portfolio.slice(0, 3).map((item, index) => item.url
+              ? <img key={`${vendor.id}-${index}`} src={assetUrl(item.url)} alt={item.title || `Tác phẩm ${index + 1}`} loading="lazy" />
+              : null)
+            : <span>Chưa có dữ liệu</span>}
         </div>
       ),
     },
     {
       label: 'Gói dịch vụ',
-      render: (vendor) => (vendor.packages?.length ? vendor.packages.join(' · ') : 'Đa dạng'),
+      render: (vendor) =>       (vendor.packages?.length ? vendor.packages.map((item) => item.name || item).join(' · ') : 'Chưa đăng gói'),
     },
     {
       label: 'Danh mục',
-      render: (vendor) => vendor.categories?.join(', ') || 'Sự kiện',
+      render: (vendor) => vendor.categories?.join(', ') || 'Chưa cập nhật',
     },
   ];
 

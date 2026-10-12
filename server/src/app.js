@@ -7,6 +7,8 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import rfpRoutes from './routes/rfpRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getAllowedClientOrigins } from './config/clientOrigins.js';
 
@@ -38,11 +40,13 @@ export function createApp(io) {
     });
   });
   app.use('/api/auth', authRoutes);
+  app.use('/api/users', userRoutes);
   app.use('/api/rfps', rfpRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/reviews', reviewRoutes);
   app.use('/api/vendors', vendorRoutes);
   app.use('/api/uploads', uploadRoutes);
+  app.use('/api/messages', messageRoutes);
   app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
   app.use(errorHandler);
   return app;

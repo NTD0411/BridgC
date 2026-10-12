@@ -4,7 +4,8 @@ const { Schema, model } = mongoose;
 
 const attachmentSchema = new Schema(
   {
-    url: { type: String, required: true, trim: true },
+    url: { type: String, trim: true, default: '' },
+    fileId: { type: String, trim: true, default: '' },
     fileType: { type: String, required: true, trim: true, maxlength: 100 },
     fileName: { type: String, required: true, trim: true, maxlength: 255 },
   },

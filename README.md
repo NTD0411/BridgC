@@ -36,8 +36,8 @@ BridgC/
 ## Run locally
 
 1. Use Node.js 20 or later and MongoDB Atlas (or a local MongoDB).
-2. Copy `server/.env.example` to `server/.env`, set `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_URL`.
-3. Copy `client/.env.example` to `client/.env`. Leave `VITE_API_URL` blank for local development; Vite proxies API and Socket.IO requests to `localhost:5000`.
+2. Copy `server/.env.example` to `server/.env`, set `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_URL`. For Google sign-in, set `GOOGLE_CLIENT_ID` to your Google OAuth 2.0 web client ID.
+3. Copy `client/.env.example` to `client/.env`. Leave `VITE_API_URL` blank for local development; Vite proxies API and Socket.IO requests to `localhost:5000`. Set `VITE_GOOGLE_CLIENT_ID` to the same ID and authorize `http://localhost:5173` as a JavaScript origin in Google Cloud.
 4. In one PowerShell terminal, start the API:
 
    ```bash
@@ -62,22 +62,39 @@ The API listens on port 5000 by default; Vite listens on port 5173.
 - `PATCH /api/crm/leads/:id/status` — authenticated vendor; moves a lead through the CRM pipeline.
 - `POST /api/reviews` — authenticated customer; accepts a review only when the linked lead/deal is completed (and the RFP and accepted pitch are completed when the review references an RFP).
 - `POST /api/auth/login` — signs in an existing active account and returns a JWT.
+- `POST /api/auth/register` — creates an active customer or vendor account and returns a JWT.
+- `POST /api/auth/google` — verifies a Google ID token, signs in or creates the selected account role, and returns a JWT.
+- `GET /api/users/me` and `PATCH /api/users/me` — read and update the authenticated account's name and phone number for customers, vendors, and admins.
+- `POST /api/uploads/avatar` — authenticated local image upload (5 MB maximum) that stores and sets the user's personal avatar in MongoDB GridFS.
+- Customer RFP and review endpoints reject vendor accounts; CRM lead updates reject customer accounts. The client also restricts customer and vendor workspaces to matching account roles.
+- `GET /api/messages/conversations` — lists the authenticated customer's or vendor's conversations.
+- `POST /api/messages/conversations` — starts or opens a conversation with `{ "vendorSlug": "vendor-store-slug" }` (customer only).
+- `GET /api/messages/:conversationId` — loads messages for a conversation participant.
+- `POST /api/messages/:conversationId` — sends text and/or up to five image, video, PDF, Office, TXT, or CSV attachments (maximum 50 MB per file). Attachments are stored in MongoDB GridFS and served with temporary signed links.
 - `GET /api/vendors` and `GET /api/vendors/suggest?q=...` — public vendor search and keyword suggestions.
-- `POST /api/uploads` — authenticated multipart upload (`file` field; image, PDF, or video; 50 MB maximum) to Cloudinary.
+- `GET /api/vendors/:slug` — loads a vendor profile and its reviews from MongoDB.
+- `GET /api/vendors/compare?ids=id1,id2` — loads selected profiles for comparison.
+- `GET /api/vendors/me/dashboard` — authenticated vendor profile, CRM leads, matched requests, and database-backed metrics.
+- `PUT /api/vendors/me/profile` — creates or updates the authenticated vendor's storefront, packages, and portfolio.
+- `POST /api/uploads` — authenticated vendor multipart upload (`file` field; image, PDF, or video; 50 MB maximum) to MongoDB GridFS. The vendor dashboard uses this endpoint for local logo, cover, and portfolio file selection.
 - `GET /api/health` — health check.
 
-The authenticated frontend connects with `socket.io-client` and joins its own `user:<user-id>` room. The API emits `lead:matched` alerts to matched vendors; message delivery over Socket.IO is not implemented in this starter.
+The authenticated frontend connects with `socket.io-client` and joins its own `user:<user-id>` room. Chat messages and media/document attachments are saved in MongoDB (attachments use GridFS) and broadcast to authorized conversation rooms in real time.
 
 ## Client pages
 
-- `/login` — enterprise login with buyer/vendor role selection and e-KYC messaging.
-- `/` — marketplace discovery, categories, search, vendor cards, and comparison selection.
+- `/login` — customer-only login and registration with email/password and Google sign-in.
+- `/vendor/login` — separate vendor-only login and registration with email/password and Google sign-in.
+- `/messages` — real-time Messenger inbox for customer/vendor chats, with image, video, and document sharing.
+- `/profile` — authenticated personal profile editor shared by customer, vendor, and admin accounts.
+- `/` — marketplace search, categories, vendor cards, and comparison selection populated from MongoDB.
 - `/vendors/:slug` — vendor storefront with packages, portfolio, reviews, and availability calendar.
-- `/quotes` — side-by-side quote comparison, difference filter, print-to-PDF, and vendor actions.
+- `/quotes` — side-by-side comparison of selected vendor profiles.
+- `/vendor` — vendor dashboard populated from that vendor's profile, matched RFPs, and CRM leads.
 - `/rfp/new` — dynamic event request form.
 - `/vendor` — vendor portal dashboard with metrics, matching opportunities, and CRM Kanban.
 
-The login screen signs in existing active accounts; account registration/profile onboarding, chat delivery, pitch applications, credits/boosts, live analytics, server-backed availability management, and the customer review form remain to be implemented. Featured vendor cards, comparison data, and initial CRM cards are presentation fixtures; vendor search, RFP submission, lead updates, login, and uploads use the API.
+Email registration creates an active customer or vendor account. Vendor storefront/profile onboarding is still separate; pitch applications, credits/boosts, live analytics, server-backed availability management, and the customer review form remain to be implemented. Featured vendor cards, comparison data, and initial CRM cards are presentation fixtures; vendor search, RFP submission, lead updates, authentication, chat, and uploads use the API.
 
 ## Deployment
 
@@ -101,7 +118,7 @@ The login screen signs in existing active accounts; account registration/profile
    - `MONGODB_URI`: the Atlas connection string from above.
    - `CLIENT_URL`: temporarily use `http://localhost:5173` if the Vercel site is not deployed yet. After Vercel deploys, replace it with the exact production origin. Multiple origins can be comma-separated; surrounding whitespace and trailing slashes are removed.
    - `JWT_SECRET`: let Render generate it from `render.yaml`; use a random value of at least 32 characters if setting it manually.
-   - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: only if you need file uploads.
+   - `GOOGLE_CLIENT_ID`: the OAuth 2.0 web client ID used by Google sign-in. Set this to the same value as `VITE_GOOGLE_CLIENT_ID` in Vercel.
 3. Deploy. Wait for the service to report **Live**. Copy its URL, such as `https://bridgc-api.onrender.com`, and test:
 
    ```powershell
@@ -115,12 +132,13 @@ The login screen signs in existing active accounts; account registration/profile
 
 1. In Vercel, import the same repository and set **Root Directory** to `client`. Build command is `npm run build`, output directory is `dist`; the Vite framework preset detects these automatically.
 2. Add `VITE_API_URL` with the Render API origin, e.g. `https://bridgc-api.onrender.com` (no `/api` suffix and no trailing slash). This is required in production and is shared by HTTP API requests and Socket.IO. Vite embeds this value at build time, so redeploy the frontend after changing it.
-3. Deploy the frontend and copy its production origin. Add that exact origin to Render's `CLIENT_URL`, then redeploy/restart the backend. For multiple frontends/custom domains, separate origins with commas and no trailing slashes.
-4. The client includes [client/vercel.json](./client/vercel.json) so direct loads and refreshes on paths such as `/quotes` and `/vendors/danang-media` resolve to the React app.
+3. Add `VITE_GOOGLE_CLIENT_ID` with the Google OAuth 2.0 web client ID, matching the API's `GOOGLE_CLIENT_ID`. Add the local and production frontend origins to the OAuth client's authorized JavaScript origins.
+4. Deploy the frontend and copy its production origin. Add that exact origin to Render's `CLIENT_URL`, then redeploy/restart the backend. For multiple frontends/custom domains, separate origins with commas and no trailing slashes.
+5. The client includes [client/vercel.json](./client/vercel.json) so direct loads and refreshes on paths such as `/vendor/login`, `/quotes`, and `/vendors/danang-media` resolve to the React app.
 
 ### Create the first login account
 
-The starter intentionally does not expose public account registration. Create an initial account from your computer; the command connects directly to Atlas and stores the password using the same Mongoose hashing hook as the app. In PowerShell:
+Public email registration is available from `/login`. To create an initial account manually (for example, to create a vendor profile during setup), run the command from your computer; it connects directly to Atlas and stores the password using the same Mongoose hashing hook as the app. In PowerShell:
 
 ```powershell
 Set-Location .\server
@@ -142,10 +160,10 @@ Remove-Item Env:MONGODB_URI, Env:BOOTSTRAP_EMAIL, Env:BOOTSTRAP_FULL_NAME, Env:B
 
 ### Verify the deployed frontend is connected to the backend
 
-1. Open the Vercel site, sign in with the account created above, then use the vendor search or submit an RFP. The requests should reach the Render API; the API log should not report CORS, DNS, or MongoDB errors.
+1. Open the Vercel site, register or sign in, then use the vendor search or submit an RFP. Google sign-in is available when both OAuth client ID environment variables are configured. Requests should reach the Render API; the API log should not report CORS, DNS, or MongoDB errors.
 2. In browser Developer Tools → **Network**, check the request URL begins with the Render URL and that `/api/vendors` returns HTTP 200. A login returns HTTP 401 only for incorrect credentials; successful login returns a token.
 3. If the browser reports a CORS error, compare `window.location.origin` in the browser with Render's `CLIENT_URL` exactly, update `CLIENT_URL`, and redeploy the backend.
 4. If `/api/health` fails, check Render's startup logs and verify the Atlas database user, URL-encoded password, cluster network access, and `MONGODB_URI`.
 5. Render's free web service may sleep when idle; the first request after inactivity can take a short while. Keep the tab open and retry after it wakes.
 
-Do not expose Atlas credentials, JWT secrets, or Cloudinary API secrets as `VITE_*` variables.
+Do not expose Atlas credentials or JWT secrets as `VITE_*` variables.
