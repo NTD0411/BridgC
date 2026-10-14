@@ -8,6 +8,9 @@ import VendorDashboardPage from './pages/VendorDashboardPage.jsx';
 import VendorProfilePage from './pages/VendorProfilePage.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 import PersonalProfilePage from './pages/PersonalProfilePage.jsx';
+import CustomerAiPage from './pages/CustomerAiPage.jsx';
+import VendorAiPage from './pages/VendorAiPage.jsx';
+import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import MarketplaceLayout from './components/MarketplaceLayout.jsx';
 import { API_URL } from './lib/api.js';
@@ -51,7 +54,7 @@ function RoutedApp() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || !role) return undefined;
     if (import.meta.env.PROD && !API_URL) {
       console.error('VITE_API_URL is not configured for the production build');
       return undefined;
@@ -64,7 +67,7 @@ function RoutedApp() {
       console.error('BridgC realtime connection failed', error.message);
     });
     return () => socket.disconnect();
-  }, [token]);
+  }, [token, role]);
 
   return (
     <>
@@ -74,13 +77,16 @@ function RoutedApp() {
         </button>
       )}
       <Routes>
-        <Route path="/login" element={token && role ? <Navigate to={role === 'vendor' ? '/vendor' : '/'} replace /> : <LoginPage role="customer" onLogin={setSession} />} />
-        <Route path="/vendor/login" element={token && role ? <Navigate to={role === 'vendor' ? '/vendor' : '/'} replace /> : <LoginPage role="vendor" onLogin={setSession} />} />
+        <Route path="/login" element={token && role ? <Navigate to={role === 'admin' ? '/admin' : role === 'vendor' ? '/vendor' : '/'} replace /> : <LoginPage role="customer" onLogin={setSession} />} />
+        <Route path="/vendor/login" element={token && role ? <Navigate to={role === 'admin' ? '/admin' : role === 'vendor' ? '/vendor' : '/'} replace /> : <LoginPage role="vendor" onLogin={setSession} />} />
         <Route path="/" element={<MarketplaceLayout><LandingPage /></MarketplaceLayout>} />
         <Route path="/vendors/:slug" element={<MarketplaceLayout><VendorProfilePage /></MarketplaceLayout>} />
         <Route path="/quotes" element={<RoleRoute role="customer"><MarketplaceLayout><QuoteComparisonPage /></MarketplaceLayout></RoleRoute>} />
         <Route path="/rfp/new" element={<RoleRoute role="customer"><MarketplaceLayout><EventCreatePage /></MarketplaceLayout></RoleRoute>} />
+        <Route path="/ai/customer" element={<RoleRoute role="customer"><MarketplaceLayout><CustomerAiPage /></MarketplaceLayout></RoleRoute>} />
+        <Route path="/ai/vendor" element={<RoleRoute role="vendor"><MarketplaceLayout mode="vendor"><VendorAiPage /></MarketplaceLayout></RoleRoute>} />
         <Route path="/vendor" element={<RoleRoute role="vendor"><MarketplaceLayout mode="vendor"><VendorDashboardPage /></MarketplaceLayout></RoleRoute>} />
+        <Route path="/admin" element={<RoleRoute role="admin"><MarketplaceLayout mode="admin"><AdminDashboardPage /></MarketplaceLayout></RoleRoute>} />
         <Route path="/messages" element={<AuthenticatedRoute><MarketplaceLayout mode={role === 'vendor' ? 'vendor' : 'customer'}><ChatPage /></MarketplaceLayout></AuthenticatedRoute>} />
         <Route path="/profile" element={<AuthenticatedRoute><MarketplaceLayout mode={role === 'vendor' ? 'vendor' : 'customer'}><PersonalProfilePage /></MarketplaceLayout></AuthenticatedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

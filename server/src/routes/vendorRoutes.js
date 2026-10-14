@@ -3,6 +3,7 @@ import {
   compareVendors,
   getVendorBySlug,
   getVendorDashboard,
+  matchVendorsToRequest,
   saveVendorProfile,
   searchVendors,
   suggestVendors,
@@ -11,6 +12,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 router.get('/', searchVendors);
+router.get('/ai-match', matchVendorsToRequest);
 router.get('/suggest', suggestVendors);
 router.get('/compare', compareVendors);
 router.get('/me/dashboard', requireAuth, requireRole('vendor'), getVendorDashboard);

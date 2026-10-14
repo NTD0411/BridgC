@@ -3,6 +3,7 @@ import { ArrowDownToLine, ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check
 import { Link, useParams } from 'react-router-dom';
 import { apiRequest, assetUrl } from '../lib/api.js';
 import { useSessionStore } from '../store/sessionStore.js';
+import GoogleMapView from '../components/GoogleMapView.jsx';
 
 const formatPrice = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(price);
@@ -118,6 +119,17 @@ export default function VendorProfilePage() {
           })}</div>{vendor.availabilityCalendar?.length ? <div className="calendar-legend"><span><i /> Ngày có lịch trống</span><span><i /> Đã bận</span></div> : <p className="market-empty">Vendor chưa cập nhật lịch làm việc.</p>}<Link className="profile-primary full-width" to={`/rfp/new?vendor=${encodeURIComponent(vendor.slug)}`}><CalendarDays size={15} /> Yêu cầu báo giá</Link></section>
           {vendor.companyProfilePdfUrl && <section className="profile-section card-surface document-card"><h3>Hồ sơ năng lực</h3><a href={assetUrl(vendor.companyProfilePdfUrl)} target="_blank" rel="noreferrer"><ArrowDownToLine size={16} /> Tải hồ sơ năng lực (PDF)</a></section>}
           {vendor.cataloguePdfUrl && <section className="profile-section card-surface document-card"><h3>Catalogue</h3><a href={assetUrl(vendor.cataloguePdfUrl)} target="_blank" rel="noreferrer"><ArrowDownToLine size={16} /> Tải catalogue (PDF)</a></section>}
+          <section className="profile-section card-surface map-card">
+            <div className="profile-section-title">
+              <div><span className="market-kicker">ĐỊA ĐIỂM</span><h3>Bản đồ vị trí</h3></div>
+            </div>
+            <GoogleMapView
+              location={location || 'Đà Nẵng'}
+              address={vendor.address}
+              title={vendor.storeName}
+              height={200}
+            />
+          </section>
         </aside>
       </div>
     </div>

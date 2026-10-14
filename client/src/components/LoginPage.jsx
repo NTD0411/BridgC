@@ -110,14 +110,17 @@ export default function LoginPage({ role, onLogin }) {
     setError('');
     setSubmitting(true);
     try {
-      const result = await apiRequest(isRegistering ? '/api/auth/register' : '/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: form.get('email'),
-          password: form.get('password'),
-          ...(isRegistering ? { fullName: form.get('fullName'), role } : {}),
-        }),
-      });
+      const result = await apiRequest(
+        isRegistering ? '/api/auth/register' : '/api/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: form.get('email'),
+            password: form.get('password'),
+            ...(isRegistering ? { fullName: form.get('fullName'), role } : {}),
+          }),
+        },
+      );
       if (result.user.role !== role && result.user.role !== 'admin') {
         setError(roleMismatchMessage(role));
         return;

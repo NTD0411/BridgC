@@ -9,6 +9,10 @@ import vendorRoutes from './routes/vendorRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+import weatherRoutes from './routes/weatherRoutes.js';
+import mapRoutes from './routes/mapRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getAllowedClientOrigins } from './config/clientOrigins.js';
 
@@ -47,6 +51,10 @@ export function createApp(io) {
   app.use('/api/vendors', vendorRoutes);
   app.use('/api/uploads', uploadRoutes);
   app.use('/api/messages', messageRoutes);
+  app.use('/api/ai', aiRoutes);
+  app.use('/api/weather', weatherRoutes);
+  app.use('/api/maps', mapRoutes);
+  app.use('/api/admin', adminRoutes);
   app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
   app.use(errorHandler);
   return app;

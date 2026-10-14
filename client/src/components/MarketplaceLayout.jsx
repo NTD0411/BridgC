@@ -9,6 +9,7 @@ import {
   LogOut,
   MessageCircle,
   Search,
+  ShieldCheck,
   UserRound,
 } from 'lucide-react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -19,6 +20,7 @@ const customerLinks = [
   { to: '/', label: 'Khám phá Vendor' },
   { to: '/quotes', label: 'So sánh dịch vụ' },
   { to: '/rfp/new', label: 'Đăng dự án RFP' },
+  { to: '/ai/customer', label: 'AI hỗ trợ' },
 ];
 
 const vendorLinks = [
@@ -26,6 +28,14 @@ const vendorLinks = [
   { to: '/vendor#storefront', label: 'Gian hàng Storefront', icon: BriefcaseBusiness },
   { to: '/vendor#rfp', label: 'Chợ Dự án RFP', icon: FilePlus2 },
   { to: '/vendor#insights', label: 'Thống kê & Insight', icon: Search },
+  { to: '/ai/vendor', label: 'AI Vendor' },
+];
+
+const adminLinks = [
+  { to: '/admin', label: 'Bảng Quản trị', icon: ShieldCheck },
+  { to: '/', label: 'Sàn dịch vụ' },
+  { to: '/rfp/new', label: 'Đăng dự án' },
+  { to: '/ai/customer', label: 'AI hỗ trợ' },
 ];
 
 export default function MarketplaceLayout({ children, mode = 'customer' }) {
@@ -34,8 +44,9 @@ export default function MarketplaceLayout({ children, mode = 'customer' }) {
   const logout = useSessionStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
-  const isVendor = mode === 'vendor';
-  const links = isVendor ? vendorLinks : customerLinks;
+  const isAdmin = user?.role === 'admin' || mode === 'admin';
+  const isVendor = !isAdmin && mode === 'vendor';
+  const links = isAdmin ? adminLinks : isVendor ? vendorLinks : customerLinks;
   const accountName = user?.fullName || user?.email || 'Tài khoản';
   const accountInitials = accountName
     .split(/[\s@._-]+/)
@@ -48,12 +59,15 @@ export default function MarketplaceLayout({ children, mode = 'customer' }) {
     : user?.role === 'vendor' ? 'Nhà cung ứng' : 'Khách hàng';
 
   return (
-    <div className={`marketplace-shell ${isVendor ? 'vendor-shell' : ''}`}>
+    <div className={`marketplace-shell ${isVendor ? 'vendor-shell' : ''} ${isAdmin ? 'admin-shell' : ''}`}>
       <header className="market-header">
         <div className="market-header-main">
-          <Link className="market-brand" to="/" aria-label="BridgC trang chủ">
+          <Link className="market-brand" to={isAdmin ? '/admin' : '/'} aria-label="BridgC trang chủ">
             <span className="market-brand-mark">b.</span>
-            <span className="market-brand-copy"><strong>Bridg<span>C</span></strong><small>{isVendor ? 'BUSINESS PORTAL' : 'EVENT MARKETPLACE'}</small></span>
+            <span className="market-brand-copy">
+              <strong>Bridg<span>C</span></strong>
+              <small>{isAdmin ? 'ADMIN CONTROL CENTER' : isVendor ? 'BUSINESS PORTAL' : 'EVENT MARKETPLACE'}</small>
+            </span>
           </Link>
           <nav className="market-nav" aria-label="Điều hướng chính">
             {links.map(({ to, label, icon: Icon }) => (
@@ -73,9 +87,14 @@ export default function MarketplaceLayout({ children, mode = 'customer' }) {
             ))}
           </nav>
           <div className="market-header-actions">
-            {!isVendor && (
+            {!isVendor && !isAdmin && (
               <Link className="header-create" to="/rfp/new">
                 <FilePlus2 size={16} /> <span>Tạo yêu cầu mới</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link className="header-create admin-cta-pill" to="/admin">
+                <ShieldCheck size={16} /> <span>Quản trị hệ thống</span>
               </Link>
             )}
             {isVendor && <span className="credit-pill">◉ {new Intl.NumberFormat('vi-VN').format(user?.creditsBalance ?? 0)} <small>B-Credit</small></span>}

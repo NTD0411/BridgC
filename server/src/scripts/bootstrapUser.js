@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import { connectDatabase } from '../config/db.js';
 import User from '../models/User.js';
 import VendorProfile from '../models/VendorProfile.js';
 
@@ -15,8 +16,8 @@ async function bootstrapUser() {
   const fullName = requiredEnv('BOOTSTRAP_FULL_NAME');
   const role = process.env.BOOTSTRAP_ROLE || 'customer';
 
-  if (!['customer', 'vendor'].includes(role)) {
-    throw new Error('BOOTSTRAP_ROLE must be customer or vendor');
+  if (!['customer', 'vendor', 'admin'].includes(role)) {
+    throw new Error('BOOTSTRAP_ROLE must be customer, vendor, or admin');
   }
   if (password.length < 12) {
     throw new Error('BOOTSTRAP_PASSWORD must contain at least 12 characters');
@@ -35,7 +36,8 @@ async function bootstrapUser() {
     };
   }
 
-  await mongoose.connect(requiredEnv('MONGODB_URI'));
+  requiredEnv('MONGODB_URI');
+  await connectDatabase();
   let user = await User.findOne({ email });
   if (user) {
     console.info(`An account for ${email} already exists; no changes were made.`);

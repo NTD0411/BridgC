@@ -108,6 +108,105 @@ export const searchVendors = asyncHandler(async (req, res) => {
   });
 });
 
+export const matchVendorsToRequest = asyncHandler(async (req, res) => {
+  const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+  if (req.query.query !== undefined && typeof req.query.query !== 'string') {
+    return res.status(400).json({ message: 'query must be a string' });
+  }
+  if (!query || query.length > 1000) {
+    return res.status(400).json({ message: 'Nhập yêu cầu từ 1 đến 1000 ký tự' });
+  }
+
+  const stopWords = new Set([
+    'cho', 'cần', 'mình', 'toi', 'tôi', 'với', 'và', 'có', 'ở', 'tại', 'là',
+    'một', 'các', 'những', 'theo', 'ưu', 'tiên', 'ngân', 'sách', 'khoảng',
+    'muốn', 'tìm', 'dịch', 'vụ', 'sự', 'kiện', 'event', 'need', 'find', 'for',
+    'with', 'and', 'the', 'a', 'an', 'to', 'in', 'on', 'my', 'our',
+  ]);
+  const terms = [...new Set(
+    query
+      .toLocaleLowerCase()
+      .match(/[\p{L}\p{N}]+/gu)
+      ?.filter((term) => term.length > 1 && !stopWords.has(term)) || [],
+  )].slice(0, 20);
+  if (!terms.length) {
+    return res.status(400).json({ message: 'Yêu cầu cần có tên dịch vụ, địa điểm hoặc mô tả cụ thể hơn' });
+  }
+
+  const activeVendorIds = await User.find({ role: 'vendor', status: 'active' }).distinct('_id');
+  const termFilters = terms.map((term) => {
+    const pattern = { $regex: escapeRegex(term), $options: 'i' };
+    return {
+      $or: [
+        { storeName: pattern },
+        { bio: pattern },
+        { category: pattern },
+        { tags: pattern },
+        { 'location.province': pattern },
+        { 'location.city': pattern },
+        { 'packages.description': pattern },
+        { 'packages.features': pattern },
+      ],
+    };
+  });
+  const profiles = await VendorProfile.find({
+    userId: { $in: activeVendorIds },
+    $or: termFilters,
+  })
+    .populate({ path: 'userId', match: { status: 'active' }, select: '_id' })
+    .limit(200)
+    .lean();
+
+  const normalize = (value) => String(value || '').toLocaleLowerCase();
+  const scored = profiles
+    .filter((profile) => profile.userId)
+    .map((profile) => {
+      const fields = {
+        storeName: normalize(profile.storeName),
+        category: normalize((profile.category || []).join(' ')),
+        tags: normalize((profile.tags || []).join(' ')),
+        location: normalize(`${profile.location?.city || ''} ${profile.location?.province || ''}`),
+        details: normalize([
+          profile.bio,
+          ...(profile.packages || []).flatMap((item) => [item.description, ...(item.features || [])]),
+        ].join(' ')),
+      };
+      const matchedTerms = terms.filter((term) => Object.values(fields).some((field) => field.includes(term)));
+      const score = matchedTerms.reduce((total, term) => {
+        if (fields.category.includes(term)) return total + 5;
+        if (fields.tags.includes(term)) return total + 4;
+        if (fields.storeName.includes(term)) return total + 3;
+        if (fields.location.includes(term)) return total + 2;
+        return total + 1;
+      }, 0);
+      const packages = profile.packages || [];
+      return {
+        id: profile._id,
+        slug: profile.slug,
+        name: profile.storeName,
+        initials: profile.storeName.slice(0, 1).toLocaleUpperCase(),
+        location: [profile.location?.city, profile.location?.province].filter(Boolean).join(', '),
+        categories: profile.category || [],
+        rating: profile.stats?.ratingAvg || 0,
+        reviewCount: profile.stats?.reviewCount || 0,
+        startingPrice: packages.length ? Math.min(...packages.map((item) => item.price)) : 0,
+        responseTime: profile.stats?.responseTimeMinutes || 0,
+        packages,
+        tags: profile.tags || [],
+        logo: profile.logo,
+        coverImage: profile.coverImage,
+        portfolio: (profile.portfolio || []).slice(0, 3).map(({ type, url, title }) => ({ type, url, title })),
+        isPro: profile.isPro,
+        isVerified: profile.isVerified,
+        matchScore: terms.length ? Math.round((matchedTerms.length / terms.length) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.matchScore - a.matchScore || Number(b.isPro) - Number(a.isPro) || b.rating - a.rating)
+    .slice(0, 30);
+
+  return res.json({ vendors: scored, total: scored.length, query });
+});
+
 export const suggestVendors = asyncHandler(async (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   if (q.length < 2) return res.json({ suggestions: [] });

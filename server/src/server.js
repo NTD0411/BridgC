@@ -14,6 +14,8 @@ async function start() {
   }
   await connectDatabase();
   const httpServer = createServer();
+  let app;
+  httpServer.on('request', (req, res) => app(req, res));
   const io = new Server(httpServer, {
     cors: { origin: getAllowedClientOrigins(), credentials: true },
   });
@@ -53,8 +55,7 @@ async function start() {
     });
   });
 
-  const app = createApp(io);
-  httpServer.on('request', app);
+  app = createApp(io);
   const port = Number(process.env.PORT || 5000);
   httpServer.listen(port, () => console.info(`BridgC API listening on ${port}`));
 }
