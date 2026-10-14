@@ -316,8 +316,8 @@ export default function AdminDashboardPage() {
           <div className="admin-badge">
             <ShieldCheck size={14} /> TRUNG TÂM QUẢN TRỊ VIÊN
           </div>
-          <h1>Bảng Điều Khiển Hệ Thống BridgC</h1>
-          <p>Giám sát chỉ số, quản lý người dùng, nhà cung cấp, kiểm duyệt dự án và tích hợp dịch vụ AI / Bản đồ.</p>
+          <h1>Trung tâm điều hành BridgC</h1>
+          <p>Theo dõi hoạt động nền tảng và xử lý tài khoản, hồ sơ Vendor, yêu cầu RFQ, đánh giá cùng trạng thái hệ thống.</p>
         </div>
 
         <div className="admin-actions">
@@ -333,54 +333,70 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="admin-tabs-nav" aria-label="Khu vực quản trị">
-        <button
-          type="button"
-          className={activeTab === 'overview' ? 'active' : ''}
-          onClick={() => setActiveTab('overview')}
-        >
-          <Activity size={16} /> Tổng quan & Chỉ số
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'users' ? 'active' : ''}
-          onClick={() => setActiveTab('users')}
-        >
-          <Users size={16} /> Người dùng ({metrics?.users?.total || 0})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'vendors' ? 'active' : ''}
-          onClick={() => setActiveTab('vendors')}
-        >
-          <BadgeCheck size={16} /> Nhà cung cấp ({metrics?.vendors?.total || 0})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'rfps' ? 'active' : ''}
-          onClick={() => setActiveTab('rfps')}
-        >
-          <FileText size={16} /> Dự án RFP ({metrics?.rfps?.total || 0})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'reviews' ? 'active' : ''}
-          onClick={() => setActiveTab('reviews')}
-        >
-          <Star size={16} /> Đánh giá ({metrics?.reviews?.total || 0})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'integrations' ? 'active' : ''}
-          onClick={() => setActiveTab('integrations')}
-        >
-          <Cpu size={16} /> Tích hợp AI / Weather / Maps
-        </button>
-      </nav>
+      <div className="admin-workspace">
+        <nav className="admin-tabs-nav" aria-label="Khu vực quản trị">
+          <div className="admin-nav-group">
+            <span className="admin-nav-heading">Điều hành &amp; giám sát</span>
+            <button
+              type="button"
+              className={activeTab === 'overview' ? 'active' : ''}
+              onClick={() => setActiveTab('overview')}
+            >
+              <Activity size={17} /> <span>Tổng quan Dashboard</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'rfps' ? 'active' : ''}
+              onClick={() => setActiveTab('rfps')}
+            >
+              <FileText size={17} /> <span>Giám sát RFQ &amp; sự kiện</span>
+              <span className="admin-nav-count">{metrics?.rfps?.total || 0}</span>
+            </button>
+          </div>
+          <div className="admin-nav-group">
+            <span className="admin-nav-heading">Quản lý tài khoản</span>
+            <button
+              type="button"
+              className={activeTab === 'users' ? 'active' : ''}
+              onClick={() => setActiveTab('users')}
+            >
+              <Users size={17} /> <span>Khách hàng &amp; tài khoản</span>
+              <span className="admin-nav-count">{metrics?.users?.total || 0}</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'vendors' ? 'active' : ''}
+              onClick={() => setActiveTab('vendors')}
+            >
+              <BadgeCheck size={17} /> <span>Xác minh Vendor</span>
+              <span className="admin-nav-count">{metrics?.vendors?.total || 0}</span>
+            </button>
+          </div>
+          <div className="admin-nav-group">
+            <span className="admin-nav-heading">Kiểm duyệt &amp; hệ thống</span>
+            <button
+              type="button"
+              className={activeTab === 'reviews' ? 'active' : ''}
+              onClick={() => setActiveTab('reviews')}
+            >
+              <Star size={17} /> <span>Đánh giá &amp; nội dung</span>
+              <span className="admin-nav-count">{metrics?.reviews?.total || 0}</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'integrations' ? 'active' : ''}
+              onClick={() => setActiveTab('integrations')}
+            >
+              <Cpu size={17} /> <span>Tích hợp hệ thống</span>
+            </button>
+          </div>
+          <div className="admin-nav-note">
+            <ShieldCheck size={16} />
+            <span>Quyền truy cập quản trị viên</span>
+          </div>
+        </nav>
 
-      {/* Main Tab Content */}
-      <main className="admin-main-body">
+        <main className="admin-main-body">
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="admin-tab-content">
@@ -1082,7 +1098,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Credit Modal */}
       {selectedUserForCredits && (

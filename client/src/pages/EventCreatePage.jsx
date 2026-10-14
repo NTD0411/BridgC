@@ -14,7 +14,7 @@ export default function EventCreatePage() {
         </div>
         <aside className="event-create-aside">
           <section className="event-side-card event-checklist"><span className="market-kicker">PROJECT BRIEF</span><h2>Thông tin sự kiện mục tiêu</h2><p>Điền rõ thông tin để nhận đề xuất phù hợp hơn.</p><ul><li><Check size={15} /> Chọn đúng ngành dịch vụ</li><li><Check size={15} /> Nêu rõ phạm vi công việc</li><li><Check size={15} /> Thêm địa điểm &amp; thời gian</li><li><Check size={15} /> Ngân sách dự kiến</li></ul><div className="brief-seal"><ShieldCheck size={17} /> Dữ liệu được bảo mật</div></section>
-          <section className="event-side-card"><span className="market-kicker">HƯỚNG DẪN</span><h3>Hoàn thiện yêu cầu</h3><p>Thông tin chi tiết giúp nhà cung cấp hiểu đúng nhu cầu sự kiện của bạn.</p><ul><li><Check size={15} /> Nêu phạm vi công việc</li><li><Check size={15} /> Cung cấp địa điểm và thời gian</li><li><Check size={15} /> Thêm ngân sách dự kiến</li></ul></section>
+          <section className="event-side-card event-guide-card"><span className="market-kicker">HƯỚNG DẪN</span><h3>Hoàn thiện yêu cầu</h3><p>Thông tin chi tiết giúp nhà cung cấp hiểu đúng nhu cầu sự kiện của bạn.</p><ul><li><Check size={15} /> Nêu phạm vi công việc</li><li><Check size={15} /> Cung cấp địa điểm và thời gian</li><li><Check size={15} /> Thêm ngân sách dự kiến</li></ul></section>
         </aside>
       </div>
     </div>

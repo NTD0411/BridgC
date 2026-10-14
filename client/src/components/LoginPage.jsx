@@ -91,8 +91,8 @@ export default function LoginPage({ role, onLogin }) {
           theme: 'outline',
           size: 'large',
           shape: 'rectangular',
-          text: 'continue_with',
-          width: 180,
+          text: 'signin_with',
+          width: 200,
         });
       })
       .catch((loadError) => {
